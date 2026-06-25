@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: agrotwinx-whatsapp
+    runtime: python
+    plan: free
+    buildCommand: "pip install -r requirements.txt"
+    startCommand: "gunicorn whatsapp_bot.app:app --bind 0.0.0.0:$PORT --workers 1 --timeout 120"
+    healthCheckPath: /health
+    envVars:
+
+      # --- Secrets: set these values in the Render dashboard (sync:false) ---
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: TWILIO_WHATSAPP_NUMBER
+        sync: false
+      - key: OPENWEATHER_API_KEY
+        sync: false
+      - key: GEE_PROJECT_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+        
+      # --- Non-secret config: values can live here ---
+      - key: GEMINI_PRIMARY_MODEL
+        value: gemini-3.5-flash
+      - key: GEMINI_FALLBACK_MODEL
+        value: gemini-3.1-flash-lite
+      - key: PYTHON_VERSION
+        value: "3.12"

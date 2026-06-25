@@ -1,0 +1,11 @@
+class,precision,recall,f1,support
+bacterial_blight,0.857,0.400,0.545,15
+brown_spot,0.545,0.800,0.649,15
+healthy,0.853,0.967,0.906,30
+leaf_rust,0.636,0.933,0.757,15
+powdery_mildew,1.000,0.846,0.917,13
+rice_blast,0.429,0.400,0.414,15
+septoria,0.615,0.667,0.640,12
+stem_rust,1.000,0.467,0.636,15
+tungro,0.938,1.000,0.968,15
+yellow_rust,1.000,0.933,0.966,15

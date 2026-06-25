@@ -1,0 +1,13 @@
+district,crop,actual_maunds,pred_maunds,abs_error,ape_pct,peak_ndvi,mean_ndvi,source
+Lahore,wheat,33.39,30.0,3.3900000000000006,10.15274034141959,0.771,0.542,DAWN/CRS 2022 division avg
+Dera Ghazi Khan,wheat,32.5,28.2,4.300000000000001,13.230769230769232,0.723,0.517,DAWN/CRS 2022 division avg
+Faisalabad,wheat,31.44,28.8,2.6400000000000006,8.396946564885498,0.741,0.521,DAWN/CRS 2022 division avg
+Sargodha,wheat,25.64,22.7,2.9400000000000013,11.466458658346339,0.578,0.429,DAWN/CRS 2022 division avg
+Rawalpindi,wheat,23.76,21.0,2.7600000000000016,11.616161616161621,0.529,0.407,DAWN/CRS 2022 division avg
+Punjab(avg),wheat,30.3,27.5,2.8000000000000007,9.240924092409243,0.706,0.505,CRS 3-yr avg (Loksujag/CRS)
+Punjab(2023),wheat,30.93,28.0,2.9299999999999997,9.473003556417718,0.718,0.51,CRS 2022-23 final
+Sahiwal,rice,35.27,28.6,6.670000000000002,18.911256024950383,0.858,0.585,DAWN/CRS 2021 non-basmati division avg
+Lahore,rice,23.87,20.4,3.4700000000000024,14.537075827398418,0.631,0.468,DAWN/CRS 2021 non-basmati division avg
+Punjab(basmati),rice,30.0,25.2,4.800000000000001,16.000000000000004,0.764,0.536,CRS basmati avg (RRI/HBL range)
+Gujranwala,rice,32.0,27.0,5.0,15.625,0.815,0.563,Basmati belt CRS-range estimate
+Sheikhupura,rice,31.0,26.0,5.0,16.129032258064516,0.785,0.55,Basmati belt CRS-range estimate

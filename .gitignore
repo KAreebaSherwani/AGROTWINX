@@ -1,0 +1,56 @@
+# ==========================================
+# SECRETS — never commit these
+# ==========================================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+
+# ==========================================
+# Python
+# ==========================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+
+# ==========================================
+# Local database files (SQLite) — data lives in Supabase now
+# ==========================================
+data/*.db
+data/*.sqlite
+data/*.sqlite3
+
+# ==========================================
+# Large datasets / archives — GitHub rejects files >100MB
+# ==========================================
+*.rar
+*.zip
+*.7z
+data/raw/
+data/processed/
+
+# ==========================================
+# Runtime / generated junk
+# ==========================================
+*.log
+data/temp/
+whatsapp_bot/static/audio/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ==========================================
+# OS / editor
+# ==========================================
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp

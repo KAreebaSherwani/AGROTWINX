@@ -1,0 +1,119 @@
+# ============================================
+# CORE WEB FRAMEWORKS & RUNTIMES
+# ============================================
+flask>=3.0.0
+streamlit>=1.39.0
+gunicorn>=21.2.0
+python-dotenv>=1.0.0
+
+# ============================================
+# TWILIO (WhatsApp Integration)
+# ============================================
+twilio>=8.11.1
+
+# ============================================
+# DATABASE LAYER (PostgreSQL, Async, Vector, Migration)
+# ============================================
+sqlalchemy>=2.0
+asyncpg>=0.29
+pgvector>=0.3.0
+psycopg2-binary>=2.9.9
+redis>=5.0.1
+
+# ============================================
+# GOOGLE APIS & MULTIMODAL GENERATIVE AI
+# ============================================
+# New Google GenAI SDK (Required for gemini-embedding-2 & modern features)
+google-genai>=1.0.0
+
+# Legacy/Supplementary Google GenAI SDKs
+google-generativeai>=0.4.0
+google-api-core>=2.15.0
+google-api-python-client>=2.111.0
+
+# Google Earth Engine (Satellite Remote Sensing Data)
+earthengine-api>=0.1.384
+google-auth>=2.25.2
+google-auth-oauthlib>=1.2.0
+google-cloud-storage>=2.14.0
+
+# Google Cloud Speech (Voice Synthesis)
+gTTS>=2.5.4
+
+# ============================================
+# DATA PROCESSING, ANALYSIS & DOCUMENT EXTRACTION
+# ============================================
+pandas>=2.2.3
+numpy>=1.26.4
+scipy>=1.13.1
+pypdf>=4.0.0              # Required for PDF text parsing in ingest_advisories.py
+
+# ============================================
+# MACHINE LEARNING & DEEP LEARNING AI
+# ============================================
+tensorflow>=2.18.0
+keras>=3.0.0
+scikit-learn>=1.5.0
+
+# ============================================
+# IMAGE PROCESSING & COMPUTER VISION
+# ============================================
+Pillow>=10.1.0
+opencv-python>=4.10.0
+
+# ============================================
+# GEOSPATIAL & METRIC VISUALIZATION
+# ============================================
+plotly>=5.18.0
+matplotlib>=3.9.0
+seaborn>=0.13.0
+folium>=0.15.1
+
+# ============================================
+# WEATHER ENGINE & NETWORKING
+# ============================================
+requests>=2.31.0
+pyowm>=3.3.0
+requests-toolbelt>=1.0.0
+urllib3>=2.1.0
+certifi>=2023.11.17
+
+# ============================================
+# AUTOMATION & TIME MANAGEMENT
+# ============================================
+schedule>=1.2.0
+APScheduler>=3.10.4
+python-dateutil>=2.8.2
+pytz>=2023.3
+
+# ============================================
+# SECURITY, AUTHENTICATION & ENCRYPTION
+# ============================================
+cryptography>=41.0.7
+PyJWT>=2.8.0
+
+# ============================================
+# TELEMETRY, MONITORING & LOGGING
+# ============================================
+sentry-sdk>=1.39.1
+colorlog>=6.8.0
+
+# ============================================
+# TESTING SUITE (Development Environment Only)
+# ============================================
+pytest>=7.4.3
+pytest-cov>=4.1.0
+pytest-mock>=3.12.0
+
+# ============================================
+# STATIC CODE QUALITY ASSURANCE (Linting & Styling)
+# ============================================
+black>=23.12.1
+flake8>=7.0.0
+pylint>=3.0.3
+
+# ============================================
+# COMPREHENSIVE PLATFORM DOCUMENTATION GENERATION
+# ============================================
+sphinx>=7.2.6
+sphinx-rtd-theme>=2.0.0

@@ -1,0 +1,34 @@
+AgroTwinX — Yield Estimation Validation (Backtest)
+======================================================
+Mode            : SYNTHETIC NDVI (anchored to real yields)
+Districts tested: 12 (Punjab CRS/DAWN/PBS ground truth)
+Unit            : maunds per acre (1 maund = 40 kg)
+
+MAE  (mean abs error) :  3.89 maunds/acre
+RMSE                  :  4.07 maunds/acre
+MAPE (mean abs % err) :  12.9 %
+R^2                   : -0.34
+Within +/-5 md/ac    :   92 %
+
+Per-district:
+  Lahore           wheat actual  33.4  pred  30.0  err  3.4 (10.2%)  [DAWN/CRS 2022 division avg]
+  Dera Ghazi Khan  wheat actual  32.5  pred  28.2  err  4.3 (13.2%)  [DAWN/CRS 2022 division avg]
+  Faisalabad       wheat actual  31.4  pred  28.8  err  2.6 ( 8.4%)  [DAWN/CRS 2022 division avg]
+  Sargodha         wheat actual  25.6  pred  22.7  err  2.9 (11.5%)  [DAWN/CRS 2022 division avg]
+  Rawalpindi       wheat actual  23.8  pred  21.0  err  2.8 (11.6%)  [DAWN/CRS 2022 division avg]
+  Punjab(avg)      wheat actual  30.3  pred  27.5  err  2.8 ( 9.2%)  [CRS 3-yr avg (Loksujag/CRS)]
+  Punjab(2023)     wheat actual  30.9  pred  28.0  err  2.9 ( 9.5%)  [CRS 2022-23 final]
+  Sahiwal          rice  actual  35.3  pred  28.6  err  6.7 (18.9%)  [DAWN/CRS 2021 non-basmati division avg]
+  Lahore           rice  actual  23.9  pred  20.4  err  3.5 (14.5%)  [DAWN/CRS 2021 non-basmati division avg]
+  Punjab(basmati)  rice  actual  30.0  pred  25.2  err  4.8 (16.0%)  [CRS basmati avg (RRI/HBL range)]
+  Gujranwala       rice  actual  32.0  pred  27.0  err  5.0 (15.6%)  [Basmati belt CRS-range estimate]
+  Sheikhupura      rice  actual  31.0  pred  26.0  err  5.0 (16.1%)  [Basmati belt CRS-range estimate]
+
+Interpretation:
+ - Checks that the NDVI-driven yield estimate lands in the correct
+   real-world range for Punjab districts (MAE/MAPE are the key metrics;
+   R^2 is uninformative on these few clustered district averages).
+ - SYNTHETIC mode validates calibration of the NDVI->yield curve; supply
+   real Sentinel-2 NDVI via --ndvi-csv for a fully empirical backtest.
+ - Yield is an estimate to guide planning/marketplace value, not a
+   guaranteed forecast; district weather/management cause residual error.

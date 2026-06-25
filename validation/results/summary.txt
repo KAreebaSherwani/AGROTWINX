@@ -1,0 +1,19 @@
+AgroTwinX — Disease Detection Validation
+================================================
+Mode: REAL Gemini
+Images tested : 160 (scored)  |  skipped (API errors): 0
+Classes       : ['bacterial_blight', 'brown_spot', 'healthy', 'leaf_rust', 'powdery_mildew', 'rice_blast', 'septoria', 'stem_rust', 'tungro', 'yellow_rust']
+OVERALL ACCURACY: 76.2%
+Macro F1        : 0.740
+
+Per-class (precision / recall / f1):
+  bacterial_blight   0.86 / 0.40 / 0.55
+  brown_spot         0.55 / 0.80 / 0.65
+  healthy            0.85 / 0.97 / 0.91
+  leaf_rust          0.64 / 0.93 / 0.76
+  powdery_mildew     1.00 / 0.85 / 0.92
+  rice_blast         0.43 / 0.40 / 0.41
+  septoria           0.62 / 0.67 / 0.64
+  stem_rust          1.00 / 0.47 / 0.64
+  tungro             0.94 / 1.00 / 0.97
+  yellow_rust        1.00 / 0.93 / 0.97
