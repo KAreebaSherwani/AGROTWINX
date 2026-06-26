@@ -54,3 +54,6 @@ Thumbs.db
 .vscode/
 .idea/
 *.swp
+
+
+gcp-service-account.json

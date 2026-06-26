@@ -55,22 +55,8 @@ class VoiceFormatter:
         
         return voice_text
 
-# Example usage
-formatter = VoiceFormatter()
-
-text_msg = """
-🌾 چاول کی حالت
-
-🟢 صحت: 78%
-📊 مرحلہ: tillering
-⏳ کٹائی میں: 30 دن
-
-📈 تخمینہ:
-├─ پیداوار: 62.5 maunds
-├─ Parali: 3.8 tons
-└─ قیمت: Rs. 11,400
-"""
-
-voice_msg = formatter.create_voice_version(text_msg)
-print(voice_msg)
+if __name__ == "__main__":
+    formatter = VoiceFormatter()
+    sample = "🌾 چاول کی حالت\n🟢 صحت: 78%"
+    print(formatter.create_voice_version(sample))
 # Output: "چاول کی حالت۔ صحت 78 فیصد۔ مرحلہ tillering۔ کٹائی میں 30 دن۔..."

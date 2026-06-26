@@ -55,17 +55,8 @@ class VoiceCommandRecognizer:
         
         return best_match
 
-# Usage
-recognizer = VoiceCommandRecognizer()
-
-# Test different variations
-tests = [
-    "meri fasal kaisi hai",
-    "paani dena hai kya",
-    "khaad chahiye",
-    "parali ka rate kya hai"
-]
-
-for test in tests:
-    command = recognizer.recognize_command(test)
-    print(f"'{test}' → {command}")
+if __name__ == "__main__":
+    recognizer = VoiceCommandRecognizer()
+    for test in ["meri fasal kaisi hai", "paani dena hai kya",
+                 "khaad chahiye", "parali ka rate kya hai"]:
+        print(f"'{test}' → {recognizer.recognize_command(test)}")

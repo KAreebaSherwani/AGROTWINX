@@ -1,73 +1,63 @@
 # src/voice/text_to_speech.py
-
 """
-Convert text responses to Urdu voice messages
+Convert text responses to Urdu/English voice messages using gTTS (free).
+
+gTTS needs NO credentials and NO service account — it uses Google Translate's
+public TTS voices. Supports Urdu ('ur') and English ('en').
+
+Public interface is UNCHANGED so the rest of the bot needs no edits:
+    TextToSpeech().generate_urdu_response(urdu_text) -> path to .mp3
+    TextToSpeech().generate_voice(text, language='ur-PK') -> path to .mp3
 """
 
-from google.cloud import texttospeech
 import os
 
+
 class TextToSpeech:
-    """
-    Generate voice responses in Urdu
-    """
-    
+    """Generate voice responses using gTTS (free, no credentials)."""
+
     def __init__(self):
-        self.tts_client = texttospeech.TextToSpeechClient()
-    
-    def generate_voice(self, text, language='ur-PK', gender='FEMALE'):
+        self._lang_map = {
+            "ur-PK": "ur", "ur": "ur",
+            "en-US": "en", "en": "en",
+            "pa": "pa",
+        }
+        try:
+            import gtts  # noqa: F401
+            self._available = True
+        except Exception:
+            self._available = False
+            print("⚠️  TextToSpeech: gTTS not installed; voice replies disabled. "
+                  "Add 'gTTS' to requirements.")
+
+    def generate_voice(self, text, language="ur-PK", gender="FEMALE"):
         """
-        Generate voice audio from text
-        
-        Args:
-            text: Text to convert
-            language: 'ur-PK' (Urdu) or 'en-US' (English)
-            gender: 'MALE' or 'FEMALE'
+        Generate speech audio from text. Returns path to an .mp3 file, or None.
+        `gender` is accepted for interface compatibility but gTTS ignores it.
         """
-        
-        # Set the text input
-        synthesis_input = texttospeech.SynthesisInput(text=text)
-        
-        # Build voice parameters
-        voice = texttospeech.VoiceSelectionParams(
-            language_code=language,
-            ssml_gender=texttospeech.SsmlVoiceGender[gender]
-        )
-        
-        # Select audio format
-        audio_config = texttospeech.AudioConfig(
-            audio_encoding=texttospeech.AudioEncoding.OGG_OPUS,
-            speaking_rate=0.9,  # Slightly slower for clarity
-            pitch=0.0
-        )
-        
-        # Perform text-to-speech
-        response = self.tts_client.synthesize_speech(
-            input=synthesis_input,
-            voice=voice,
-            audio_config=audio_config
-        )
-        
-        # Save audio file
-        audio_path = f"data/temp/response_{os.urandom(8).hex()}.ogg"
-        
-        with open(audio_path, 'wb') as out:
-            out.write(response.audio_content)
-        
-        return audio_path
-    
+        if not self._available or not text:
+            return None
+
+        from gtts import gTTS
+
+        lang = self._lang_map.get(language, "ur")
+        try:
+            tts = gTTS(text=text, lang=lang, slow=False)
+            os.makedirs("data/temp", exist_ok=True)
+            audio_path = f"data/temp/response_{os.urandom(8).hex()}.mp3"
+            tts.save(audio_path)
+            return audio_path
+        except Exception as e:
+            print(f"❌ gTTS generation failed: {e}")
+            return None
+
     def generate_urdu_response(self, urdu_text):
-        """Generate Urdu voice response"""
-        return self.generate_voice(urdu_text, language='ur-PK', gender='FEMALE')
+        """Generate an Urdu voice response (.mp3 path or None)."""
+        return self.generate_voice(urdu_text, language="ur-PK")
 
-# Usage
-tts = TextToSpeech()
 
-# Generate voice for farmer response
-urdu_text = """
-السلام علیکم! آپ کی چاول کی فصل کی صحت 78 فیصد ہے۔
-فصل اچھی حالت میں ہے۔ کٹائی 30 دن میں متوقع ہے۔
-"""
-
-audio_file = tts.generate_urdu_response(urdu_text)
-print(f"Voice generated: {audio_file}")
+if __name__ == "__main__":
+    tts = TextToSpeech()
+    sample = "السلام علیکم! آپ کی فصل کی صحت اچھی ہے۔"
+    path = tts.generate_urdu_response(sample)
+    print(f"Voice generated: {path}" if path else "TTS unavailable (install gTTS).")
