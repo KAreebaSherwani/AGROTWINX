@@ -21,7 +21,18 @@ for directory in [DATA_DIR, RAW_DATA_DIR, PROCESSED_DATA_DIR, MODELS_DIR]:
 # ==========================================
 # 2. API CREDENTIALS
 # ==========================================
-# Gemini model selection (primary + automatic fallback on quota/rate errors)
+# On Railway/Render, the GEE service-account JSON is provided as an env var
+# (its file contents). Write it to a file so GOOGLE_APPLICATION_CREDENTIALS works.
+import json as _json
+_gcp_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
+if _gcp_json and not os.path.exists("gcp-service-account.json"):
+    try:
+        with open("gcp-service-account.json", "w") as _f:
+            _f.write(_gcp_json)
+        os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "gcp-service-account.json"
+    except Exception as _e:
+        print(f"⚠️  Could not write GCP credentials file: {_e}")
+
 # Gemini API key + model selection (primary + automatic fallback on quota/rate errors)
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_PRIMARY_MODEL  = os.getenv('GEMINI_PRIMARY_MODEL',  'gemini-3.5-flash')
