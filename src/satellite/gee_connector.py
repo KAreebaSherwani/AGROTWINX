@@ -15,20 +15,38 @@ class GEEConnector:
     
     def __init__(self):
         try:
-            # Prefer service-account auth (works locally AND when deployed).
-            # Falls back to browser/CLI auth if no service account is set.
+            creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
             key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            if key_path and os.path.exists(key_path):
-                sa_email = json.load(open(key_path)).get("client_email")
-                credentials = ee.ServiceAccountCredentials(sa_email, key_path)
+
+            if creds_json:
+                # Railway: the full service-account JSON is in the env var.
+                # Write it to a temp file for ServiceAccountCredentials.
+                import tempfile
+                info = json.loads(creds_json)
+                with tempfile.NamedTemporaryFile(
+                    mode="w", suffix=".json", delete=False
+                ) as f:
+                    json.dump(info, f)
+                    tmp_path = f.name
+                credentials = ee.ServiceAccountCredentials(info["client_email"], tmp_path)
                 ee.Initialize(credentials, project=GEE_PROJECT_ID)
-                print("✅ Google Earth Engine initialized (service account)")
+                print("✅ Google Earth Engine initialized (service account JSON)")
+
+            elif key_path and os.path.exists(key_path):
+                # A real key file exists at the given path
+                info = json.load(open(key_path))
+                credentials = ee.ServiceAccountCredentials(info["client_email"], key_path)
+                ee.Initialize(credentials, project=GEE_PROJECT_ID)
+                print("✅ Google Earth Engine initialized (service account file)")
+
             else:
+                # Local dev: browser/CLI auth
                 ee.Initialize(project=GEE_PROJECT_ID)
                 print("✅ Google Earth Engine initialized (browser auth)")
+
         except Exception as e:
             print(f"❌ GEE initialization failed: {e}")
-            print("Run: earthengine authenticate  (local)  OR set GOOGLE_APPLICATION_CREDENTIALS")
+            print("Check GOOGLE_CREDENTIALS_JSON is valid and the service account is registered with Earth Engine.")
             raise
     
     def get_sentinel2_image(self, lat, lon, start_date, end_date, buffer_km=2):
