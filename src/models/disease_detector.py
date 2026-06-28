@@ -38,12 +38,40 @@ class DiseaseDetector:
         """
         print(f"\n🔍 Analyzing image: {Path(image_path).name}")
 
-        # Read and encode image
+        # Read, resize, and encode image (smaller = faster upload + less timeout risk)
         try:
-            with open(image_path, 'rb') as f:
-                image_data = base64.b64encode(f.read()).decode('utf-8')
+            from PIL import Image
+            import io
+
+            img = Image.open(image_path)
+            # Convert to RGB (handles PNG/HEIC/transparency)
+            if img.mode != "RGB":
+                img = img.convert("RGB")
+
+            # Downscale so the longest side is at most 1024px (keeps detail, cuts size)
+            max_side = 1024
+            if max(img.size) > max_side:
+                ratio = max_side / max(img.size)
+                new_size = (int(img.size[0] * ratio), int(img.size[1] * ratio))
+                img = img.resize(new_size, Image.LANCZOS)
+
+            # Compress to JPEG in memory
+            buf = io.BytesIO()
+            img.save(buf, format="JPEG", quality=85)
+            image_bytes = buf.getvalue()
+            image_data = base64.b64encode(image_bytes).decode("utf-8")
+            print(f"🖼️  Image prepared: {len(image_bytes) // 1024} KB, {img.size[0]}x{img.size[1]}")
+
         except FileNotFoundError:
             return {'error': 'Image file not found', 'disease_detected': False}
+        except Exception as e:
+            # If PIL isn't available or fails, fall back to raw bytes
+            print(f"⚠️  Image resize failed ({e}); sending original.")
+            try:
+                with open(image_path, 'rb') as f:
+                    image_data = base64.b64encode(f.read()).decode('utf-8')
+            except FileNotFoundError:
+                return {'error': 'Image file not found', 'disease_detected': False}
 
         # Get common diseases for this crop
         common_diseases = COMMON_DISEASES.get(crop_type, [])
@@ -119,12 +147,25 @@ Use EXACT disease names from the candidate list. Set disease_detected true only 
             for attempt_model in models_to_try:
                 endpoint = f"{self.base_url}/{attempt_model}:generateContent?key={self.api_key}"
                 print(f"🔄 Using model: {attempt_model}")
-                response = requests.post(
-                    endpoint,
-                    json=payload,
-                    headers={'Content-Type': 'application/json'},
-                    timeout=30
-                )
+                response = None
+                for net_attempt in range(2):
+                    try:
+                        response = requests.post(
+                            endpoint,
+                            json=payload,
+                            headers={'Content-Type': 'application/json'},
+                            timeout=90
+                        )
+                        break
+                    except requests.exceptions.RequestException as net_err:
+                        print(f"⏳ Network issue ({net_err}); retry {net_attempt + 1}/2")
+                        if net_attempt == 1:
+                            raise
+                        import time
+                        time.sleep(2)
+                if response is None:
+                    continue
+                
                 if response.status_code == 200:
                     model_name = attempt_model
                     break
