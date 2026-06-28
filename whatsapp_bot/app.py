@@ -1,4 +1,4 @@
-# whatsapp_bot/app.py — TwiML replies (reliable text, fixes 21212 error)
+# whatsapp_bot/app.py — TwiML replies + Gemini voice transcription
 
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
@@ -36,7 +36,7 @@ def reply(text):
 
 @app.route('/whatsapp', methods=['POST'])
 def whatsapp_webhook():
-    """Handle WhatsApp messages (text + photo)."""
+    """Handle WhatsApp messages (text + voice + photo)."""
 
     from_number = request.form.get('From', '')
     message_body = request.form.get('Body', '').strip()
@@ -82,10 +82,25 @@ def whatsapp_webhook():
         elif media_url and 'image' in media_content_type:
             response_text = handle_photo_upload(media_url, session, farmer)
 
-        # Voice note — not reliably supported in sandbox; ask for text/photo
+        # Voice note — transcribe via Gemini, then route as a normal text message
         elif media_url and 'audio' in media_content_type:
-            response_text = ("🎤 آواز کی سہولت ابھی WhatsApp پر دستیاب نہیں۔\n"
-                             "براہ کرم اپنا سوال *text* میں لکھیں یا فصل کی *تصویر* بھیجیں۔")
+            from src.voice.voice_handler import VoiceHandler
+            vh = VoiceHandler()
+            transcription = vh.process_voice_message(media_url, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            if transcription and transcription.get('text'):
+                spoken = transcription['text']
+                print(f"📝 Transcribed: {spoken}")
+                if session['state'] == 'initial':
+                    inner = handle_initial(spoken, session)
+                elif session['state'] == 'registration':
+                    inner = handle_registration(spoken, session, from_number)
+                elif session['state'] == 'active':
+                    inner = route_command(spoken, session, farmer, db)
+                else:
+                    inner = handle_initial(spoken, session)
+                response_text = f"🎤 _{spoken}_\n\n{inner}"
+            else:
+                response_text = "🎤 آواز سمجھ نہیں آئی۔ براہ کرم دوبارہ بولیں یا *text* میں لکھیں۔"
 
         # Initial state
         elif session['state'] == 'initial':
@@ -282,6 +297,7 @@ def complete_registration(session, phone_number):
 └─ *مدد* - تمام commands
 
 📸 فصل کی *تصویر* بھیجیں disease check کے لیے
+🎤 *آواز* میں بھی بات کر سکتے ہیں!
 
 کل صبح 7 بجے پہلا update ملے گا! ⏰
         """.strip()
@@ -362,7 +378,7 @@ def health_check():
 # Run server
 if __name__ == '__main__':
     print("=" * 70)
-    print("WHATSAPP BOT SERVER (TwiML replies)")
+    print("WHATSAPP BOT SERVER (TwiML + Gemini voice)")
     print("=" * 70)
     Path('data/temp').mkdir(parents=True, exist_ok=True)
     port = int(os.environ.get('PORT', 5000))
