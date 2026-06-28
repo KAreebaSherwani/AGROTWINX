@@ -1,4 +1,4 @@
-# whatsapp_bot/app.py — TwiML replies + Gemini voice transcription
+# whatsapp_bot/app.py — TwiML replies + Gemini voice transcription + input validation
 
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
@@ -25,6 +25,51 @@ db = Database()
 
 # Session storage (use Redis in production)
 sessions = {}
+
+# Punjab rice/wheat districts -> coordinates. Farmer just types the name (Urdu or English).
+DISTRICT_COORDS = {
+    "sheikhupura": (31.7131, 73.9783, "Sheikhupura"),
+    "شیخوپورہ": (31.7131, 73.9783, "Sheikhupura"),
+    "gujranwala": (32.1877, 74.1945, "Gujranwala"),
+    "گوجرانوالہ": (32.1877, 74.1945, "Gujranwala"),
+    "sialkot": (32.4945, 74.5229, "Sialkot"),
+    "سیالکوٹ": (32.4945, 74.5229, "Sialkot"),
+    "hafizabad": (32.0712, 73.6885, "Hafizabad"),
+    "حافظ آباد": (32.0712, 73.6885, "Hafizabad"),
+    "nankana": (31.4504, 73.7050, "Nankana Sahib"),
+    "ننکانہ": (31.4504, 73.7050, "Nankana Sahib"),
+    "kasur": (31.1187, 74.4500, "Kasur"),
+    "قصور": (31.1187, 74.4500, "Kasur"),
+    "lahore": (31.5204, 74.3587, "Lahore"),
+    "لاہور": (31.5204, 74.3587, "Lahore"),
+    "faisalabad": (31.4504, 73.1350, "Faisalabad"),
+    "فیصل آباد": (31.4504, 73.1350, "Faisalabad"),
+    "okara": (30.8081, 73.4591, "Okara"),
+    "اوکاڑہ": (30.8081, 73.4591, "Okara"),
+    "sahiwal": (30.6682, 73.1114, "Sahiwal"),
+    "ساہیوال": (30.6682, 73.1114, "Sahiwal"),
+    "multan": (30.1575, 71.5249, "Multan"),
+    "ملتان": (30.1575, 71.5249, "Multan"),
+    "rawalpindi": (33.5651, 73.0169, "Rawalpindi"),
+    "راولپنڈی": (33.5651, 73.0169, "Rawalpindi"),
+    "gujrat": (32.5731, 74.0789, "Gujrat"),
+    "گجرات": (32.5731, 74.0789, "Gujrat"),
+    "jhang": (31.2781, 72.3317, "Jhang"),
+    "جھنگ": (31.2781, 72.3317, "Jhang"),
+    "narowal": (32.1014, 74.8800, "Narowal"),
+    "نارووال": (32.1014, 74.8800, "Narowal"),
+    "mandi bahauddin": (32.5861, 73.4917, "Mandi Bahauddin"),
+    "منڈی بہاؤالدین": (32.5861, 73.4917, "Mandi Bahauddin"),
+}
+
+
+def lookup_district(message):
+    """Return (lat, lon, name) if the typed district is recognized, else None."""
+    text = message.strip().lower()
+    for key, val in DISTRICT_COORDS.items():
+        if key in text or text in key:
+            return val
+    return None
 
 
 def reply(text):
@@ -70,12 +115,14 @@ def whatsapp_webhook():
 
     # Route message
     try:
-        # Location shared during registration
+        # GPS location shared during registration (still supported if they manage it)
         if latitude and longitude and session['state'] == 'registration':
             session['data']['location'] = {
                 'lat': float(latitude),
                 'lon': float(longitude)
             }
+            if 'district' not in session['data']:
+                session['data']['district'] = 'Punjab'
             response_text = complete_registration(session, from_number)
 
         # Photo sent (disease detection)
@@ -163,14 +210,20 @@ To start, type *"start"*
 
 
 def handle_registration(message, session, phone_number):
-    """Handle registration flow"""
+    """Handle registration flow — validates each step, asks again if input is wrong."""
     data = session['data']
+    msg = message.strip()
 
-    # Step 1: Name
+    # Step 1: Name (reject empty or number-only names)
     if 'name' not in data:
-        data['name'] = message
+        if not msg or msg.isdigit() or len(msg) < 2:
+            return """
+براہ کرم اپنا *صحیح نام* لکھیں 🙏
+(مثال: محمد اسلم)
+            """.strip()
+        data['name'] = msg
         return f"""
-شکریہ *{message}*! 🙏
+شکریہ *{msg}*! 🙏
 
 آپ کونسی فصل اُگا رہے ہیں?
 
@@ -180,18 +233,24 @@ def handle_registration(message, session, phone_number):
 نمبر بھیجیں (1 یا 2)
         """.strip()
 
-    # Step 2: Crop
+    # Step 2: Crop (ask again if not a valid choice — do NOT default silently)
     if 'crop_type' not in data:
         crop_map = {
             '1': 'rice', '2': 'wheat',
             'چاول': 'rice', 'گندم': 'wheat',
-            'rice': 'rice', 'wheat': 'wheat'
+            'rice': 'rice', 'wheat': 'wheat',
         }
-        crop = crop_map.get(message.lower(), 'rice')
+        crop = crop_map.get(msg.lower())
+        if crop is None:
+            return """
+معاف کیجیے، سمجھ نہیں آیا۔ 🙏
+
+براہ کرم *1* یا *2* بھیجیں:
+1️⃣ چاول (Rice)
+2️⃣ گندم (Wheat)
+            """.strip()
         data['crop_type'] = crop
-
         crop_name = 'چاول' if crop == 'rice' else 'گندم'
-
         return f"""
 ✅ {crop_name} منتخب ہوئی
 
@@ -199,33 +258,55 @@ def handle_registration(message, session, phone_number):
 (نمبر میں لکھیں، مثال: 5)
         """.strip()
 
-    # Step 3: Area
+    # Step 3: Area (validate it's a sensible number, else ask again)
     if 'area_acres' not in data:
         try:
-            area = float(message)
-            if area <= 0 or area > 1000:
-                return "براہ کرم صحیح رقبہ لکھیں (1-1000 ایکڑ)"
-
-            data['area_acres'] = area
-
+            area = float(msg)
+        except ValueError:
             return """
+براہ کرم رقبہ *نمبر* میں لکھیں 🙏
+(مثال: 5)
+            """.strip()
+        if area <= 0 or area > 1000:
+            return "براہ کرم صحیح رقبہ لکھیں (1 سے 1000 ایکڑ کے درمیان)"
+        data['area_acres'] = area
+        return """
 بہترین! 👍
 
-اب اپنی *location share* کریں 📍
+اب اپنے *ضلع کا نام* لکھیں 📍
+مثلاً: شیخوپورہ، گوجرانوالہ، فیصل آباد، اوکاڑہ، ساہیوال
 
-WhatsApp میں:
-📎 (Attach) → 📍 Location → Current Location
+(انگریزی میں بھی لکھ سکتے ہیں: Sheikhupura, Faisalabad)
 
-(یا اپنے گاؤں کا نام لکھیں)
+اس سے ہم سیٹلائٹ کے ذریعے آپ کے علاقے کی درست معلومات دیں گے۔ 🛰️
         """.strip()
 
-        except ValueError:
-            return "براہ کرم رقبہ نمبر میں لکھیں (مثال: 5)"
-
-    # Step 4: Waiting for location (or village name fallback)
+    # Step 4: District name -> coordinates (ask again if not recognized)
     if 'location' not in data:
-        data['village'] = message
-        data['location'] = {'lat': 33.74, 'lon': 73.13}  # default (Taxila)
+        matched = lookup_district(msg)
+        if matched:
+            lat, lon, district_name = matched
+            data['location'] = {'lat': lat, 'lon': lon}
+            data['district'] = district_name
+            data['village'] = district_name
+            return complete_registration(session, phone_number)
+
+        # Not recognized — ask once more with examples
+        if not data.get('district_retry'):
+            data['district_retry'] = True
+            return """
+معاف کیجیے، یہ ضلع نہیں ملا۔ 🙏
+
+براہ کرم اپنے *ضلع کا نام* دوبارہ لکھیں، مثلاً:
+شیخوپورہ، گوجرانوالہ، فیصل آباد، اوکاڑہ، ساہیوال، قصور، حافظ آباد، ملتان، لاہور، سیالکوٹ
+
+(انگریزی میں بھی: Sheikhupura, Faisalabad, Okara)
+            """.strip()
+
+        # Second miss — accept the name, use Punjab center, continue (never block)
+        data['village'] = msg
+        data['location'] = {'lat': 31.1704, 'lon': 72.7097}  # Punjab center
+        data['district'] = msg.title()
         return complete_registration(session, phone_number)
 
     return "کچھ غلطی ہوئی۔ 'شروع' لکھ کر دوبارہ شروع کریں۔"
@@ -241,7 +322,7 @@ def complete_registration(session, phone_number):
             'name': data['name'],
             'location_lat': data['location']['lat'],
             'location_lon': data['location']['lon'],
-            'district': 'Rawalpindi',
+            'district': data.get('district', 'Punjab'),
             'village': data.get('village', 'Unknown'),
         }
 
@@ -277,6 +358,7 @@ def complete_registration(session, phone_number):
         session['farm_id'] = farm_id
 
         crop_name = 'چاول' if data['crop_type'] == 'rice' else 'گندم'
+        district_name = data.get('district', 'Punjab')
 
         return f"""
 ✅ *رجسٹریشن مکمل!* 🎉
@@ -286,7 +368,8 @@ def complete_registration(session, phone_number):
 *تفصیلات:*
 ├─ نام: {data['name']}
 ├─ فصل: {crop_name}
-└─ رقبہ: {data['area_acres']} ایکڑ
+├─ رقبہ: {data['area_acres']} ایکڑ
+└─ ضلع: {district_name}
 
 *استعمال کریں:*
 ├─ *حالت* - فصل کی حالت دیکھیں

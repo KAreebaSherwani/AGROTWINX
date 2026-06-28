@@ -7,6 +7,7 @@ WhatsApp bot uses — so every endpoint returns REAL data:
   - chat (text)        -> Gemini + config.SYSTEM_PROMPT_AGRONOMIST
   - voice STT          -> src.voice.voice_handler.VoiceHandler
   - voice TTS          -> src.voice.text_to_speech.TextToSpeech (gTTS)
+  - NDVI/NDWI tiles    -> src.satellite.gee_connector.GEEConnector (live GEE)
   - yield validation   -> validation/results_yield/*
   - product catalog    -> Supabase `products` table
   - marketplace/carbon -> config constants + Supabase
@@ -40,7 +41,7 @@ import config
 app = FastAPI(
     title="AgroTwinX API",
     description="REST API for the AgroTwinX dashboard — backed by the real backend modules.",
-    version="0.5.0",
+    version="0.6.0",
 )
 
 app.add_middleware(
@@ -122,6 +123,16 @@ def _db():
     """Lazily create the real Database (Supabase) connection."""
     from src.utils.database import Database
     return Database()
+
+
+# GEE connector is created once and reused (initializing it is slow).
+_gee_connector = None
+def _gee():
+    global _gee_connector
+    if _gee_connector is None:
+        from src.satellite.gee_connector import GEEConnector
+        _gee_connector = GEEConnector()
+    return _gee_connector
 
 
 def _read_yield_summary():
@@ -279,7 +290,6 @@ def marketplace_stats():
         q = db.query("SELECT COALESCE(SUM(quantity_tons),0) AS t FROM stubble_listings")
         tons = float(q[0].get("t") or 0) if q else 0
         stats["total_stubble_tons"] = tons
-        # CO2 avoided: use rice factor as representative blend
         co2 = tons * config.CARBON_EMISSION_FACTORS.get("rice_stubble", 1.8)
         stats["total_co2_tons"] = round(co2, 1)
         stats["carbon_value_pkr"] = round(
@@ -288,6 +298,60 @@ def marketplace_stats():
     except Exception:
         pass
     return stats
+
+
+# ==========================================================================
+# NDVI / NDWI MAP TILES (Page 1 — live GEE)
+# ==========================================================================
+_tile_cache: dict = {}  # simple in-memory cache: key -> tile result
+
+
+@app.get("/api/districts", tags=["satellite"])
+def districts():
+    """List available districts with coordinates (for the map selector)."""
+    return [
+        {"name": k, "lat": v["lat"], "lon": v["lon"], "crops": v.get("crops", [])}
+        for k, v in config.PAKISTAN_CITIES.items()
+    ]
+
+
+@app.get("/api/ndvi/{district}", tags=["satellite"])
+def ndvi_tiles(district: str, index: str = Query("NDVI", description="NDVI|NDWI")):
+    """
+    Live GEE map tiles for a Punjab district. Cached after first generation
+    so repeated views are instant (important for a smooth demo).
+    """
+    from datetime import datetime, timedelta
+
+    cities = config.PAKISTAN_CITIES
+    if district not in cities:
+        raise HTTPException(404, f"Unknown district. Options: {list(cities.keys())}")
+
+    cache_key = f"{district}:{index.upper()}"
+    if cache_key in _tile_cache:
+        return _tile_cache[cache_key]
+
+    c = cities[district]
+    end = datetime.utcnow()
+    start = end - timedelta(days=60)  # look back 2 months for a clear image
+
+    try:
+        gee = _gee()
+        result = gee.get_tile_url(
+            c["lat"], c["lon"],
+            start.strftime("%Y-%m-%d"), end.strftime("%Y-%m-%d"),
+            index=index.upper(),
+        )
+    except Exception as e:
+        raise HTTPException(503, f"GEE error: {e}")
+
+    if not result:
+        raise HTTPException(404, f"No clear satellite image for {district} in the last 60 days (cloud cover).")
+
+    result["district"] = district
+    result["crops"] = c.get("crops", [])
+    _tile_cache[cache_key] = result
+    return result
 
 
 # ==========================================================================
@@ -347,7 +411,6 @@ def chat(req: ChatRequest):
                 return ChatResponse(reply=text, model=model)
             except (KeyError, IndexError):
                 raise HTTPException(502, "Unexpected Gemini response")
-        # fall back on quota/rate
         err = ""
         try:
             err = r.json().get("error", {}).get("message", "").lower()
@@ -422,7 +485,6 @@ async def disease_detect(file: UploadFile = File(...),
     """
     from src.models.disease_detector import DiseaseDetector
 
-    # save upload to a temp file (detector reads from a path)
     suffix = os.path.splitext(file.filename or "")[1] or ".jpg"
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         tmp.write(await file.read())

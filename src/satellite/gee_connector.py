@@ -1,4 +1,6 @@
 import ee
+import os
+import json
 import pandas as pd
 from datetime import datetime, timedelta
 import sys
@@ -13,13 +15,21 @@ class GEEConnector:
     
     def __init__(self):
         try:
-            # Initialize Earth Engine
-            ee.Initialize(project=GEE_PROJECT_ID)
-            print("✅ Google Earth Engine initialized")
+            # Prefer service-account auth (works locally AND when deployed).
+            # Falls back to browser/CLI auth if no service account is set.
+            key_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+            if key_path and os.path.exists(key_path):
+                sa_email = json.load(open(key_path)).get("client_email")
+                credentials = ee.ServiceAccountCredentials(sa_email, key_path)
+                ee.Initialize(credentials, project=GEE_PROJECT_ID)
+                print("✅ Google Earth Engine initialized (service account)")
+            else:
+                ee.Initialize(project=GEE_PROJECT_ID)
+                print("✅ Google Earth Engine initialized (browser auth)")
         except Exception as e:
             print(f"❌ GEE initialization failed: {e}")
-            print("Run: earthengine authenticate")
-            sys.exit(1)
+            print("Run: earthengine authenticate  (local)  OR set GOOGLE_APPLICATION_CREDENTIALS")
+            raise
     
     def get_sentinel2_image(self, lat, lon, start_date, end_date, buffer_km=2):
         """
@@ -126,6 +136,55 @@ class GEEConnector:
             current_date += timedelta(days=interval_days)
         
         return observations
+
+    def get_tile_url(self, lat, lon, start_date, end_date, index="NDVI", buffer_km=15):
+        """
+        Generate a live GEE map tile URL for NDVI or NDWI over a region.
+        Returns {tile_url, date, cloud_cover, center} or None.
+        Reuses calculate_ndvi / calculate_ndwi.
+        """
+        import config
+
+        point = ee.Geometry.Point([lon, lat])
+        region = point.buffer(buffer_km * 1000)
+
+        collection = (ee.ImageCollection('COPERNICUS/S2_SR')
+                      .filterBounds(region)
+                      .filterDate(start_date, end_date)
+                      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE',
+                                           config.CLOUD_COVER_THRESHOLD))
+                      .sort('CLOUDY_PIXEL_PERCENTAGE'))
+
+        if collection.size().getInfo() == 0:
+            return None
+
+        image = collection.first()
+
+        if index.upper() == "NDWI":
+            layer = self.calculate_ndwi(image).clip(region)
+            vis = {"min": -0.3, "max": 0.5,
+                   "palette": ["#8c510a", "#d8b365", "#f6e8c3",
+                               "#c7eae5", "#5ab4ac", "#01665e"]}
+        else:  # NDVI
+            layer = self.calculate_ndvi(image).clip(region)
+            vis = {"min": config.VIS_PARAMS["min"],
+                   "max": config.VIS_PARAMS["max"],
+                   "palette": config.VIS_PARAMS["palette"]}
+
+        # getMapId returns a tile URL template Leaflet can use
+        map_id = layer.getMapId(vis)
+        tile_url = map_id["tile_fetcher"].url_format
+
+        cloud_cover = image.get('CLOUDY_PIXEL_PERCENTAGE').getInfo()
+        date = image.date().format('YYYY-MM-dd').getInfo()
+
+        return {
+            "tile_url": tile_url,
+            "index": index.upper(),
+            "date": date,
+            "cloud_cover": cloud_cover,
+            "center": {"lat": lat, "lon": lon},
+        }
 
 # Test the connector
 if __name__ == "__main__":
