@@ -37,9 +37,33 @@ if _gcp_json and not os.path.exists("gcp-service-account.json"):
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 GEMINI_PRIMARY_MODEL  = os.getenv('GEMINI_PRIMARY_MODEL',  'gemini-3.5-flash')
 GEMINI_FALLBACK_MODEL = os.getenv('GEMINI_FALLBACK_MODEL', 'gemini-3.1-flash-lite')
+# --- Twilio: primary account ---
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID')
 TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN')
 TWILIO_WHATSAPP_NUMBER = os.getenv('TWILIO_WHATSAPP_NUMBER')
+
+# --- Twilio: secondary account (used when the daily limit on the first is hit) ---
+TWILIO_ACCOUNT_SID_2 = os.getenv('TWILIO_ACCOUNT_SID_2')
+TWILIO_AUTH_TOKEN_2 = os.getenv('TWILIO_AUTH_TOKEN_2')
+TWILIO_WHATSAPP_NUMBER_2 = os.getenv('TWILIO_WHATSAPP_NUMBER_2')
+
+# Map each Account SID -> its auth token, so the bot uses the correct credentials
+# for whichever account an incoming message arrived through (needed for media download).
+TWILIO_ACCOUNTS = {}
+if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN:
+    TWILIO_ACCOUNTS[TWILIO_ACCOUNT_SID] = TWILIO_AUTH_TOKEN
+if TWILIO_ACCOUNT_SID_2 and TWILIO_AUTH_TOKEN_2:
+    TWILIO_ACCOUNTS[TWILIO_ACCOUNT_SID_2] = TWILIO_AUTH_TOKEN_2
+
+
+def get_twilio_auth(account_sid):
+    """Return (sid, token) for the account a message arrived through.
+    Falls back to the primary account if the SID isn't recognized."""
+    token = TWILIO_ACCOUNTS.get(account_sid)
+    if token:
+        return account_sid, token
+    return TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN
+
 GEE_PROJECT_ID = os.getenv('GEE_PROJECT_ID')
 DATABASE_PATH = os.getenv('DATABASE_PATH', str(DATA_DIR / 'agrotwinx.db'))
 OPENWEATHER_API_KEY = os.getenv('OPENWEATHER_API_KEY')

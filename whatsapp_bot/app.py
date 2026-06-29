@@ -1,4 +1,5 @@
 # whatsapp_bot/app.py — TwiML replies + Gemini voice transcription + input validation
+# + dual Twilio account support (auto-picks credentials per incoming account)
 
 from flask import Flask, request, Response
 from twilio.twiml.messaging_response import MessagingResponse
@@ -16,7 +17,10 @@ from whatsapp_bot.command_handlers import (
     handle_command as route_command,
     handle_marketplace_acceptance
 )
-from config import TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER
+from config import (
+    TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_WHATSAPP_NUMBER,
+    get_twilio_auth,
+)
 
 app = Flask(__name__)
 
@@ -90,7 +94,13 @@ def whatsapp_webhook():
     latitude = request.form.get('Latitude')
     longitude = request.form.get('Longitude')
 
-    print(f"\n📱 Message from {from_number}: {message_body[:50] if message_body else '[Media]'}...")
+    # Which Twilio account did this message arrive through? Pick its credentials
+    # so media (photo/voice) downloads work for either account.
+    incoming_sid = request.form.get('AccountSid', '')
+    active_sid, active_token = get_twilio_auth(incoming_sid)
+
+    print(f"\n📱 Message from {from_number}: {message_body[:50] if message_body else '[Media]'}... "
+          f"(via account {incoming_sid[:10]}...)")
 
     # Get/create session
     if from_number not in sessions:
@@ -127,13 +137,13 @@ def whatsapp_webhook():
 
         # Photo sent (disease detection)
         elif media_url and 'image' in media_content_type:
-            response_text = handle_photo_upload(media_url, session, farmer)
+            response_text = handle_photo_upload(media_url, session, farmer, active_sid, active_token)
 
         # Voice note — transcribe via Gemini, then route as a normal text message
         elif media_url and 'audio' in media_content_type:
             from src.voice.voice_handler import VoiceHandler
             vh = VoiceHandler()
-            transcription = vh.process_voice_message(media_url, TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            transcription = vh.process_voice_message(media_url, active_sid, active_token)
             if transcription and transcription.get('text'):
                 spoken = transcription['text']
                 print(f"📝 Transcribed: {spoken}")
@@ -392,7 +402,7 @@ def complete_registration(session, phone_number):
         return "رجسٹریشن میں خرابی۔ دوبارہ کوشش کریں: 'شروع'"
 
 
-def handle_photo_upload(media_url, session, farmer):
+def handle_photo_upload(media_url, session, farmer, active_sid, active_token):
     """Handle photo upload for disease detection"""
     if session['state'] != 'active' or not farmer:
         return "براہ کرم پہلے register کریں: 'شروع' لکھیں"
@@ -402,7 +412,7 @@ def handle_photo_upload(media_url, session, farmer):
 
         response = requests.get(
             media_url,
-            auth=(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            auth=(active_sid, active_token)
         )
 
         if response.status_code != 200:
@@ -461,7 +471,7 @@ def health_check():
 # Run server
 if __name__ == '__main__':
     print("=" * 70)
-    print("WHATSAPP BOT SERVER (TwiML + Gemini voice)")
+    print("WHATSAPP BOT SERVER (TwiML + Gemini voice, dual Twilio)")
     print("=" * 70)
     Path('data/temp').mkdir(parents=True, exist_ok=True)
     port = int(os.environ.get('PORT', 5000))
